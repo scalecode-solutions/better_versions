@@ -2,3 +2,13 @@ include: package:flutter_lints/flutter.yaml
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+analyzer:
+  errors:
+    # Ignore unnecessary_string_escapes in test files as they're needed for test fixtures
+    unnecessary_string_escapes: ignore
+
+linter:
+  rules:
+    # Disable the unnecessary_string_escapes rule as it causes issues with test fixtures
+    unnecessary_string_escapes: false

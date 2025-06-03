@@ -1,0 +1,122 @@
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'version_manager_platform.dart';
+
+/// Manages version information for Android platform
+class AndroidVersionManager extends PlatformVersionManager {
+  /// Path to the build.gradle file
+  late final String _buildGradlePath;
+
+  AndroidVersionManager({
+    required super.projectRoot,
+    super.dryRun,
+    String? buildGradlePath,
+  }) {
+    _buildGradlePath = buildGradlePath ?? _findBuildGradlePath();
+  }
+
+  @override
+  String get platformName => 'android';
+
+  @override
+  bool get isAvailable => File(_buildGradlePath).existsSync();
+
+  @override
+  Future<Map<String, dynamic>> getCurrentVersion() async {
+    final file = File(_buildGradlePath);
+    if (!await file.exists()) {
+      return <String, dynamic>{};
+    }
+
+    final content = await file.readAsString();
+    final result = <String, dynamic>{};
+    
+    // Parse versionName - match: versionName "1.0.0" or versionName '1.0.0'
+    final versionNameRegex = RegExp(r'versionName\s*[\'"]([^\'"]+)[\'"]');
+    final versionNameMatch = versionNameRegex.firstMatch(content);
+    if (versionNameMatch != null && versionNameMatch.groupCount >= 1) {
+      result['version'] = versionNameMatch.group(1)!;
+    }
+    
+    // Parse versionCode - match: versionCode 1
+    final versionCodeRegex = RegExp(r'versionCode\s+(\d+)');
+    final versionCodeMatch = versionCodeRegex.firstMatch(content);
+    if (versionCodeMatch != null && versionCodeMatch.groupCount >= 1) {
+      result['buildNumber'] = int.parse(versionCodeMatch.group(1)!);
+    }
+    
+    return result;
+  }
+
+  @override
+  Future<void> updateVersion({
+    required String version,
+    required int buildNumber,
+    String? preRelease,
+    bool force = false,
+  }) async {
+    final file = File(_buildGradlePath);
+    if (!await file.exists()) {
+      log('build.gradle not found at $_buildGradlePath');
+      return;
+    }
+
+    var content = await file.readAsString();
+    var updated = false;
+    final newVersion = _formatAndroidVersion(version, preRelease);
+
+    // Update versionName
+    final versionNamePattern = RegExp(r'(versionName\s*[\'"])[^\'"]+([\'"])');
+    if (versionNamePattern.hasMatch(content) || force) {
+      content = content.replaceFirstMapped(
+        versionNamePattern,
+        (match) => '${match.group(1)}$newVersion${match.group(2)}',
+      );
+      updated = true;
+    }
+
+    // Update versionCode
+    final versionCodePattern = RegExp(r'(versionCode\s+)\d+');
+    if (versionCodePattern.hasMatch(content) || force) {
+      content = content.replaceFirstMapped(
+        versionCodePattern,
+        (match) => '${match.group(1)}$buildNumber',
+      );
+      updated = true;
+    }
+
+    if (updated) {
+      if (!dryRun) {
+        await file.writeAsString(content);
+        log('Updated Android version to $version ($buildNumber)');
+      } else {
+        log('Would update Android version to $version ($buildNumber)');
+      }
+    }
+  }
+
+  String _formatAndroidVersion(String version, String? preRelease) {
+    // For Android, we can include pre-release in versionName
+    if (preRelease != null && preRelease.isNotEmpty) {
+      return '$version-$preRelease';
+    }
+    return version;
+  }
+
+  String _findBuildGradlePath() {
+    // Check common locations for build.gradle
+    final possiblePaths = [
+      path.join(projectRoot, 'android', 'app', 'build.gradle'),
+      path.join(projectRoot, 'android', 'build.gradle'),
+    ];
+
+    for (final possiblePath in possiblePaths) {
+      if (File(possiblePath).existsSync()) {
+        return possiblePath;
+      }
+    }
+
+    // Return default path if not found
+    return possiblePaths[0];
+  }
+}

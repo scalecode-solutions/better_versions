@@ -1,6 +1,6 @@
 name: better_versions
 description: "A powerful version management package for Flutter and Dart that provides flexible version formatting and automatic build number generation."
-version: 0.1.0
+version: 0.5.0
 homepage: https://github.com/scalecode-solutions/better_versions
 repository: https://github.com/scalecode-solutions/better_versions
 issue_tracker: https://github.com/scalecode-solutions/better_versions/issues
@@ -17,6 +17,7 @@ dependencies:
   path: ^1.8.3
   meta: ^1.12.0
   args: ^2.4.2
+  xml: ^6.5.0
 
 executables:
   better_versions: better_versions
